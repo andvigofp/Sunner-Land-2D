@@ -7,14 +7,12 @@ public class MovimientoJugador : MonoBehaviour
 
     [Header("Movimiento")]
     private float movimientoHorizontal = 0f;
-    [SerializeField] private float velocidadDeMovimiento;
-    [Range(0, 0.3f)][SerializeField] private float suavizadoMovimiento;
-
-    private Vector3 velocidad = Vector3.zero;
+    [Range(1f, 10f)][SerializeField] private float velocidadDeMovimiento = 5f; // Velocidad ajustada con deslizador
+    [Range(1f, 10f)][SerializeField] private float velocidadMaxima = 5f; // Limitar velocidad máxima con deslizador
     private bool mirandoDerecha = true;
 
     [Header("Salto")]
-    [SerializeField] private float fuerzaDeSalto;
+    [Range(5f, 20f)][SerializeField] private float fuerzaDeSalto = 10f; // Fuerza ajustada con deslizador
     [SerializeField] private LayerMask queEsSuelo;
     [SerializeField] private Transform controladorSuelo;
     [SerializeField] private Vector3 dimensionesCaja;
@@ -30,16 +28,16 @@ public class MovimientoJugador : MonoBehaviour
 
     private void Update()
     {
-        // Control del movimiento horizontal
-        movimientoHorizontal = Input.GetAxisRaw("Horizontal") * velocidadDeMovimiento;
+        // Detectar movimiento horizontal
+        movimientoHorizontal = Input.GetAxisRaw("Horizontal");
 
-        // Detectar acción de salto
-        if (Input.GetButtonDown("Jump"))
+        // Detectar salto solo si está en el suelo
+        if (Input.GetButtonDown("Jump") && enSuelo)
         {
             salto = true;
         }
 
-        // Actualizar animaciones
+        // Actualizar animaciones según entrada del jugador
         ActualizarAnimaciones();
     }
 
@@ -48,19 +46,25 @@ public class MovimientoJugador : MonoBehaviour
         // Verificar si el jugador está en el suelo
         enSuelo = Physics2D.OverlapBox(controladorSuelo.position, dimensionesCaja, 0f, queEsSuelo);
 
-        // Manejar el movimiento
-        Mover(movimientoHorizontal * Time.fixedDeltaTime, salto);
+        // Manejar el movimiento y el salto
+        Mover(movimientoHorizontal, salto);
 
+        // Reiniciar el salto
         salto = false;
     }
 
     private void Mover(float mover, bool saltar)
     {
-        // Aplicar suavizado al movimiento horizontal
-        Vector3 velocidadObjetivo = new Vector2(mover, rb2D.linearVelocity.y);
-        rb2D.linearVelocity = Vector3.SmoothDamp(rb2D.linearVelocity, velocidadObjetivo, ref velocidad, suavizadoMovimiento);
+        // Calcular velocidad horizontal
+        float nuevaVelocidadX = mover * velocidadDeMovimiento;
 
-        // Girar el personaje según la dirección del movimiento
+        // Limitar velocidad horizontal máxima
+        nuevaVelocidadX = Mathf.Clamp(nuevaVelocidadX, -velocidadMaxima, velocidadMaxima);
+
+        // Aplicar movimiento horizontal
+        rb2D.linearVelocity = new Vector2(nuevaVelocidadX, rb2D.linearVelocity.y);
+
+        // Cambiar dirección del personaje según el movimiento
         if (mover > 0 && !mirandoDerecha)
         {
             Girar();
@@ -71,15 +75,15 @@ public class MovimientoJugador : MonoBehaviour
         }
 
         // Aplicar fuerza de salto si está en el suelo
-        if (enSuelo && saltar)
+        if (saltar)
         {
-            enSuelo = false;
-            rb2D.AddForce(new Vector2(0f, fuerzaDeSalto));
+            rb2D.AddForce(new Vector2(0f, fuerzaDeSalto), ForceMode2D.Impulse);
         }
     }
 
     private void Girar()
     {
+        // Cambiar la dirección del personaje
         mirandoDerecha = !mirandoDerecha;
         Vector3 escala = transform.localScale;
         escala.x *= -1;
@@ -87,66 +91,24 @@ public class MovimientoJugador : MonoBehaviour
     }
 
     private void ActualizarAnimaciones()
-    
     {
-        // Detectar animaciones en función de linearVelocity y enSuelo
-        animacionPlayer.SetBool("idle", Mathf.Abs(rb2D.linearVelocity.x) < 0.5f && enSuelo);
-        animacionPlayer.SetBool("run", Mathf.Abs(rb2D.linearVelocity.x) > 0.5f && enSuelo);
-        animacionPlayer.SetBool("jump", !enSuelo);
+        // Activar animación de correr solo si hay movimiento horizontal
+        if (Mathf.Abs(movimientoHorizontal) > 0.01f && enSuelo)
+        {
+            animacionPlayer.SetBool("Correr", true);
+        }
+        else
+        {
+            animacionPlayer.SetBool("Correr", false);
+        }
 
-        // Depuración
-        Debug.Log("linearVelocity.x: " + rb2D.linearVelocity.x);
-        Debug.Log("Idle activado: " + animacionPlayer.GetBool("idle"));
-    }
-
-
-// Métodos personalizados (ajustar según la lógica del juego)
-
-private bool EstaEscalando()
-    {
-        // Lógica para detectar escalada (puedes ajustarla según la mecánica del juego)
-        return false;
-    }
-
-    private bool WallGrabDetectado()
-    {
-        // Lógica para detectar Wall Grab (agarrarse a la pared)
-        return false;
-    }
-
-    private bool EstaMareado()
-    {
-        // Activar animación de mareo si es necesario
-        return false; // Define tu lógica de mareo
-    }
-
-    private bool RecibiendoDano()
-    {
-        // Detectar daño (puedes usar una variable que se active cuando reciba daño)
-        return false; // Cambia esto según tu lógica de recibir daño
-    }
-
-    private bool RecibiendoDanoSevero()
-    {
-        // Detectar daño más severo
-        return false; // Ajusta según las mecánicas de tu juego
-    }
-
-    private bool Rodando()
-    {
-        // Detectar si está rodando
-        return Input.GetKey(KeyCode.R); // Ejemplo: Usa la tecla "R" para rodar
-    }
-
-    private bool EsVictorioso()
-    {
-        // Detectar condición de victoria
-        return false; // Ajusta según tu mecánica de victoria
+        // Activar animación de salto solo si no está en el suelo
+        animacionPlayer.SetBool("Saltar", !enSuelo);
     }
 
     private void OnDrawGizmos()
     {
-        // Dibujar el área de detección del suelo en la escena (útil para depuración)
+        // Dibujar el área de detección del suelo para depuración
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireCube(controladorSuelo.position, dimensionesCaja);
     }
