@@ -4,10 +4,12 @@ public class PlayerController : MonoBehaviour
 {
     public float velocidad = 5f;
     public float fuerzaSalto = 10f;
+    public float fuerzaRebote = 5f;
     public float longitudRaycast = 0.1f;
     public LayerMask capaSuelo;
 
     private bool enSuelo;
+    private bool recibiendoDanio;
     private Rigidbody2D rb;
 
     public Animator animator;
@@ -38,18 +40,36 @@ public class PlayerController : MonoBehaviour
 
         Vector3 posicion = transform.position;
 
-        transform.position = new Vector3(velocidadX + posicion.x, posicion.y, posicion.z);
-
+        if (!recibiendoDanio)
+        {
+            transform.position = new Vector3(velocidadX + posicion.x, posicion.y, posicion.z);
+        }
         RaycastHit2D hit = Physics2D.Raycast(transform.position, Vector2.down, longitudRaycast, capaSuelo);
         enSuelo = hit.collider != null;
 
-        if(enSuelo && Input.GetKeyDown(KeyCode.Space))
+        if(enSuelo && Input.GetKeyDown(KeyCode.Space) && !recibiendoDanio)
         {
             rb.AddForce(new Vector2(0f, fuerzaSalto), ForceMode2D.Impulse);
         }
 
         animator.SetBool("ensuelo", enSuelo);
+        animator.SetBool("recibeDanio", recibiendoDanio);
     }
+
+    public void RecibeDanio(Vector2 direccion, int cantDanio)
+    {   if (!recibiendoDanio)
+        {
+            recibiendoDanio = true;
+            Vector2 rebote = new Vector2(transform.position.x - direccion.x, 0.2f).normalized;
+            rb.AddForce(rebote * fuerzaRebote, ForceMode2D.Impulse);
+        }
+    }
+
+    public void DesactivaDanio()
+    {
+        recibiendoDanio = false;
+    }
+
 
     private void OnDrawGizmos()
     {
